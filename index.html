@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Família - Oficial</title>
+    <title>Planilha EGITO_NCRP</title>
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
@@ -18,7 +18,7 @@
 
         body { 
             font-family: 'Segoe UI', sans-serif; 
-            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('planilha_egt.png');
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('https://cdn.discordapp.com/attachments/1438240224823083081/1477755667837223117/PLANILHA.png?ex=69a5eab6&is=69a49936&hm=3ca8b91d69276f69f190cc97a5134cebe489343a8d2af536a1306ec95b201443&');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -149,10 +149,30 @@
         let currentEditing = { i: null, field: null, el: null };
         let selectedRole = "";
 
+        // LISTA DE CARGOS ATUALIZADA
         const listaCargos = [
-            "Líder", "Gerente", "Chefe de Operações", "Segurança da Favela", "Linha de Frente", 
-            "Atirador", "Pistoleiro", "Novato", "Frente", "Frente da boca", 
-            "Traficante", "Vapor", "Fogueteiro", "Aviãozinho", "Olheiro", "Cria"
+            "Fundador(00)📜", 
+            "Dono do Morro (01)", 
+            "Braço Direito (02)", 
+            "Chefe do Morro (03)", 
+            "Conselheiro", 
+            "Gerente Geral", 
+            "Gerente", 
+            "Sintonia",
+            "Chefe de Operações", 
+            "Segurança da Favela", 
+            "Linha de Frente", 
+            "Atirador", 
+            "Pistoleiro", 
+            "Novato", 
+            "Frente", 
+            "Frente da boca", 
+            "Traficante", 
+            "Vapor", 
+            "Fogueteiro", 
+            "Aviãozinho", 
+            "Olheiro", 
+            "Cria"
         ];
 
         window.onload = () => {
@@ -208,7 +228,7 @@
                     <td contenteditable="true" style="background-color:${m.bg?.passaport}" onclick="showColors(event, ${i}, 'passaport')">${m.passaport}</td>
                     <td>
                         <select class="select-cargo" onchange="updateCargo(${i}, this.value)" style="background-color:${m.bg?.cargo}" onclick="showColors(event, ${i}, 'cargo')">
-                            ${listaCargos.map(cargo => `<option value="${cargo}" ${m.cargo.toUpperCase() === cargo.toUpperCase() ? 'selected' : ''}>${cargo}</option>`).join('')}
+                            ${listaCargos.map(cargo => `<option value="${cargo}" ${m.cargo === cargo ? 'selected' : ''}>${cargo}</option>`).join('')}
                         </select>
                     </td>
                     <td><select onchange="updateData(${i}, 'meta', this.value)" style="background:#222; color:white; border:none;">
@@ -235,21 +255,19 @@
             });
         }
 
-        // FUNÇÃO PARA IMPORTAR EXCEL (.XLSX)
         function importXLSX(input) {
             const file = input.files[0];
             const reader = new FileReader();
             reader.onload = (e) => {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
                 if (jsonData.length > 0) {
                     familyData = [];
                     jsonData.forEach((row, index) => {
-                        if (index === 0 || !row[0]) return; // Pula cabeçalho ou linha vazia
+                        if (index === 0 || !row[0]) return;
                         familyData.push({
                             nick: String(row[0] || "NOME").toUpperCase(),
                             passaport: String(row[1] || "0"),
@@ -262,7 +280,7 @@
                         });
                     });
                     save(); renderTable();
-                    showNotify("Excel importado com sucesso!", "#1d6f42");
+                    showNotify("Excel importado!", "#1d6f42");
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -299,7 +317,7 @@
         function renderHistory() {
             const list = document.getElementById('history-list');
             if (historyData.length === 0) {
-                list.innerHTML = '<p style="text-align:center; color:#888;">Nenhum histórico salvo. Clique em "Fechar Semana".</p>';
+                list.innerHTML = '<p style="text-align:center; color:#888;">Nenhum histórico salvo.</p>';
                 return;
             }
             list.innerHTML = historyData.map((e,i)=>`
@@ -326,8 +344,8 @@
         }
 
         function archiveCurrent() {
-            if(familyData.length === 0) return alert("Não há dados para arquivar!");
-            if(!confirm("Fechar a semana e salvar no histórico?")) return;
+            if(familyData.length === 0) return alert("Não há dados!");
+            if(!confirm("Fechar a semana?")) return;
             historyData.unshift({date: new Date().toLocaleString('pt-BR'), data: JSON.parse(JSON.stringify(familyData))});
             localStorage.setItem('familyHistory', JSON.stringify(historyData));
             familyData = familyData.map(m => ({...m, meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg: {}}));
@@ -335,7 +353,7 @@
         }
 
         function deleteHistory(i) {
-            if(confirm("Deseja apagar este registro permanentemente?")) {
+            if(confirm("Apagar permanentemente?")) {
                 historyData.splice(i, 1);
                 localStorage.setItem('familyHistory', JSON.stringify(historyData));
                 renderHistory();
@@ -344,18 +362,20 @@
 
         function closeModal() { document.getElementById('view-modal').style.display = 'none'; }
         function updateCargo(i, v) { familyData[i].cargo = v; save(); }
+        
         function organizeTable() { 
             familyData.sort((a,b) => {
-                let idxA = listaCargos.findIndex(c => c.toUpperCase() === a.cargo.toUpperCase());
-                let idxB = listaCargos.findIndex(c => c.toUpperCase() === b.cargo.toUpperCase());
-                return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+                let idxA = listaCargos.indexOf(a.cargo);
+                let idxB = listaCargos.indexOf(b.cargo);
+                return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
             }); 
             save(); renderTable(); 
         }
+
         function updateData(i, f, v) { familyData[i][f] = v; save(); }
         function save() { localStorage.setItem('familyMembers', JSON.stringify(familyData)); }
         function addRow() { familyData.push({nick:"NOME", passaport:"0", cargo:"Cria", meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg:{}}); renderTable(); }
-        function deleteRow(i) { if(confirm("Remover membro?")) { familyData.splice(i,1); save(); renderTable(); }}
+        function deleteRow(i) { if(confirm("Remover?")) { familyData.splice(i,1); save(); renderTable(); }}
         
         function toggleHistory() {
             const d = document.getElementById('dashboard'), h = document.getElementById('history-page');
@@ -367,11 +387,11 @@
         }
 
         function restore(i) { 
-            if(confirm("Substituir planilha atual pelos dados do histórico?")) { 
+            if(confirm("Restaurar backup?")) { 
                 familyData = JSON.parse(JSON.stringify(historyData[i].data)); save(); renderTable(); toggleHistory(); 
             }
         }
-        function clearTable() { if(confirm("Apagar todos os membros?")) { familyData = []; save(); renderTable(); }}
+        function clearTable() { if(confirm("Limpar tudo?")) { familyData = []; save(); renderTable(); }}
         
         function showColors(e, i, field) {
             currentEditing = { i, field, el: e.target };
