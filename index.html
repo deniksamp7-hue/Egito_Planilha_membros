@@ -61,6 +61,12 @@
         .btn-red { background: var(--danger); }
         .btn-refresh { background: #34495e; }
 
+        /* Estilo da barra de pesquisa */
+        .search-container { position: relative; margin-bottom: 15px; width: 300px; }
+        .search-input { width: 100%; padding: 10px 10px 10px 35px; border-radius: 20px; border: 1px solid #444; background: #1a1a1a; color: white; outline: none; transition: 0.3s; }
+        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(243, 156, 18, 0.3); }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #888; pointer-events: none; }
+
         .color-picker { position: absolute; display: none; background: #333; padding: 8px; border-radius: 8px; grid-template-columns: repeat(4, 1fr); gap: 5px; z-index: 100; border: 1px solid #555; }
         .color-dot { width: 25px; height: 25px; border-radius: 4px; cursor: pointer; border: 1px solid #fff; }
 
@@ -96,8 +102,8 @@
                 <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="importCSV(this)">
                 <input type="file" id="xlsx-file" accept=".xlsx, .xls" style="display:none" onchange="importXLSX(this)">
                 
-                <button class="btn-action btn-blue" onclick="document.getElementById('csv-file').click()">📤 .CSV</button>
-                <button class="btn-action btn-green" style="background:#1d6f42" onclick="document.getElementById('xlsx-file').click()">📤 .XLSX</button>
+                <button class="btn-action btn-blue" onclick="document.getElementById('csv-file').click()">📤 Import .CSV</button>
+                <button class="btn-action btn-green" style="background:#1d6f42" onclick="document.getElementById('xlsx-file').click()">📤 Import .XLSX</button>
                 <button class="btn-action btn-red" onclick="actionWithLoading(() => location.reload(), 'Saindo...')">Sair</button>
             </div>
         </header>
@@ -105,11 +111,20 @@
         <div class="table-container">
             <div style="margin-bottom:20px;">
                 <button class="btn-action btn-green" onclick="addRow()">➕ Novo Membro</button>
-                <button class="btn-action btn-refresh" onclick="actionWithLoading(renderTable, 'Atualizando...', 'refresh')">🔄 Atualizar</button>
+                <button class="btn-action btn-refresh" onclick="actionWithLoading(refreshAndSync, 'Sincronizando Dados...', 'refresh')">🔄 Atualizar e Salvar</button>
                 <button class="btn-action btn-yellow" onclick="actionWithLoading(organizeTable, 'Organizando...', 'sort')">⚡ Organizar</button>
                 <button class="btn-action btn-blue" onclick="actionWithLoading(archiveCurrent, 'Arquivando...')">📁 Fechar Semana</button>
                 <button class="btn-action btn-blue" onclick="toggleHistory()">📅 Histórico</button>
                 <button class="btn-action btn-red" onclick="clearTable()">🗑️ Limpar</button>
+                <br><br>
+                <span style="font-weight: bold; color: var(--accent);">Baixar Planilha:</span>
+                <button class="btn-action btn-blue" style="background: #555" onclick="downloadFile('csv')">💾 Download .CSV</button>
+                <button class="btn-action btn-green" style="background: #1d6f42" onclick="downloadFile('xlsx')">💾 Download .XLSX</button>
+            </div>
+
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="table-search" class="search-input" placeholder="Pesquisar por Nick ou ID..." onkeyup="filterTable()">
             </div>
 
             <table id="main-table">
@@ -149,30 +164,12 @@
         let currentEditing = { i: null, field: null, el: null };
         let selectedRole = "";
 
-        // LISTA DE CARGOS ATUALIZADA
         const listaCargos = [
-            "Fundador(00)📜", 
-            "Dono do Morro (01)", 
-            "Braço Direito (02)", 
-            "Chefe do Morro (03)", 
-            "Conselheiro", 
-            "Gerente Geral", 
-            "Gerente", 
-            "Sintonia",
-            "Chefe de Operações", 
-            "Segurança da Favela", 
-            "Linha de Frente", 
-            "Atirador", 
-            "Pistoleiro", 
-            "Novato", 
-            "Frente", 
-            "Frente da boca", 
-            "Traficante", 
-            "Vapor", 
-            "Fogueteiro", 
-            "Aviãozinho", 
-            "Olheiro", 
-            "Cria"
+            "Fundador(00)📜", "Dono do Morro (01)", "Braço Direito (02)", "Chefe do Morro (03)", 
+            "Conselheiro", "Gerente Geral", "Gerente", "Sintonia", "Chefe de Operações", 
+            "Segurança da Favela", "Linha de Frente", "Atirador", "Pistoleiro", "Novato", 
+            "Frente", "Frente da boca", "Traficante", "Vapor", "Fogueteiro", "Aviãozinho", 
+            "Olheiro", "Cria"
         ];
 
         window.onload = () => {
@@ -182,7 +179,34 @@
                 document.getElementById('user-city-id').value = saved.id;
                 document.getElementById('remember-box').checked = true;
             }
+            window.addEventListener('storage', () => {
+                familyData = JSON.parse(localStorage.getItem('familyMembers')) || [];
+                renderTable();
+            });
         };
+
+        // FUNÇÃO DE FILTRO (LUPA)
+        function filterTable() {
+            const searchTerm = document.getElementById('table-search').value.toLowerCase();
+            const rows = document.querySelectorAll('#table-body tr');
+            
+            rows.forEach(row => {
+                const nick = row.cells[0].innerText.toLowerCase();
+                const id = row.cells[1].innerText.toLowerCase();
+                
+                if (nick.includes(searchTerm) || id.includes(searchTerm)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            });
+        }
+
+        function refreshAndSync() {
+            familyData = JSON.parse(localStorage.getItem('familyMembers')) || [];
+            renderTable();
+            document.getElementById('table-search').value = ""; // Limpa busca ao atualizar
+        }
 
         function actionWithLoading(callback, message, type = '') {
             const loader = document.getElementById('loader');
@@ -191,7 +215,7 @@
             setTimeout(() => {
                 callback();
                 loader.style.display = 'none';
-                if(type === 'refresh') showNotify("Dados atualizados!", "#2980b9");
+                if(type === 'refresh') showNotify("Dados sincronizados e salvos!", "#2980b9");
                 else if(type === 'sort') showNotify("Hierarquia organizada!", "#f39c12");
             }, 600);
         }
@@ -224,10 +248,10 @@
             familyData.forEach((m, i) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td contenteditable="true" style="background-color:${m.bg?.nick}" onclick="showColors(event, ${i}, 'nick')">${m.nick}</td>
-                    <td contenteditable="true" style="background-color:${m.bg?.passaport}" onclick="showColors(event, ${i}, 'passaport')">${m.passaport}</td>
+                    <td contenteditable="true" style="background-color:${m.bg?.nick || 'transparent'}" onclick="showColors(event, ${i}, 'nick')">${m.nick}</td>
+                    <td contenteditable="true" style="background-color:${m.bg?.passaport || 'transparent'}" onclick="showColors(event, ${i}, 'passaport')">${m.passaport}</td>
                     <td>
-                        <select class="select-cargo" onchange="updateCargo(${i}, this.value)" style="background-color:${m.bg?.cargo}" onclick="showColors(event, ${i}, 'cargo')">
+                        <select class="select-cargo" onchange="updateCargo(${i}, this.value)" style="background-color:${m.bg?.cargo || 'transparent'}" onclick="showColors(event, ${i}, 'cargo')">
                             ${listaCargos.map(cargo => `<option value="${cargo}" ${m.cargo === cargo ? 'selected' : ''}>${cargo}</option>`).join('')}
                         </select>
                     </td>
@@ -237,11 +261,13 @@
                         <option value="ELITE" ${m.meta=='ELITE'?'selected':''}>ELITE</option>
                         <option value="FARME" ${m.meta=='FARME'?'selected':''}>FARME</option>
                         <option value="ALTO COMANDO" ${m.meta=='ALTO COMANDO'?'selected':''}>ALTO COMANDO</option>
-                        <option value="GERÊNCIA" ${m.meta=='GERÊNCIA'?'selected':''}>FARME</option> 
+                        <option value="GERÊNCIA" ${m.meta=='GERÊNCIA'?'selected':''}>GERÊNCIA</option>
+                        <option value="RESP_REC" ${m.meta=='RESP_REC'?'selected':''}>RESP_REC</option>
+                        <option value="AUX_REC" ${m.meta=='AUX_REC'?'selected':''}>AUX_REC</option> 
                     </select></td>
-                    <td contenteditable="true" style="background-color:${m.bg?.resultado}" onclick="showColors(event, ${i}, 'resultado')">${m.resultado}</td>
+                    <td contenteditable="true" style="background-color:${m.bg?.resultado || 'transparent'}" onclick="showColors(event, ${i}, 'resultado')">${m.resultado}</td>
                     <td><input type="checkbox" ${m.reuniao=='Sim'?'checked':''} onchange="updateData(${i}, 'reuniao', this.checked?'Sim':'Não')"></td>
-                    <td contenteditable="true" style="background-color:${m.bg?.obs}" onclick="showColors(event, ${i}, 'obs')">${m.obs}</td>
+                    <td contenteditable="true" style="background-color:${m.bg?.obs || 'transparent'}" onclick="showColors(event, ${i}, 'obs')">${m.obs}</td>
                     <td><button onclick="deleteRow(${i})" style="color:var(--danger); background:none; border:none; cursor:pointer;">✖</button></td>
                 `;
                 
@@ -257,6 +283,35 @@
             });
         }
 
+        function downloadFile(type) {
+            const dataToExport = familyData.map(m => ({
+                NICK: m.nick,
+                ID: m.passaport,
+                CARGO: m.cargo,
+                META: m.meta,
+                RESULTADO: m.resultado,
+                REUNIAO: m.reuniao,
+                OBS: m.obs
+            }));
+
+            if (type === 'xlsx') {
+                const ws = XLSX.utils.json_to_sheet(dataToExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Planilha");
+                XLSX.writeFile(wb, "Planilha_Egito.xlsx");
+            } else {
+                const csvRows = [["NICK", "ID", "CARGO", "META", "RESULTADO", "REUNIAO", "OBS"]];
+                dataToExport.forEach(obj => csvRows.push(Object.values(obj)));
+                let csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "Planilha_Egito.csv");
+                document.body.appendChild(link);
+                link.click();
+            }
+        }
+
         function importXLSX(input) {
             const file = input.files[0];
             const reader = new FileReader();
@@ -265,7 +320,6 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
                 if (jsonData.length > 0) {
                     familyData = [];
                     jsonData.forEach((row, index) => {
@@ -316,6 +370,40 @@
             reader.readAsText(file);
         }
 
+        function archiveCurrent() {
+            if(familyData.length === 0) return alert("Não há dados!");
+            if(!confirm("Fechar a semana?")) return;
+            historyData.unshift({date: new Date().toLocaleString('pt-BR'), data: JSON.parse(JSON.stringify(familyData))});
+            localStorage.setItem('familyHistory', JSON.stringify(historyData));
+            familyData = familyData.map(m => ({...m, meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg: {}}));
+            save(); renderTable();
+        }
+
+        function updateCargo(i, v) { familyData[i].cargo = v; save(); }
+        
+        function organizeTable() { 
+            familyData.sort((a,b) => {
+                let idxA = listaCargos.indexOf(a.cargo);
+                let idxB = listaCargos.indexOf(b.cargo);
+                return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+            }); 
+            save(); renderTable(); 
+        }
+
+        function updateData(i, f, v) { familyData[i][f] = v; save(); }
+        function save() { localStorage.setItem('familyMembers', JSON.stringify(familyData)); }
+        function addRow() { familyData.push({nick:"NOME", passaport:"0", cargo:"Cria", meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg:{}}); renderTable(); save(); }
+        function deleteRow(i) { if(confirm("Remover?")) { familyData.splice(i,1); save(); renderTable(); }}
+        
+        function toggleHistory() {
+            const d = document.getElementById('dashboard'), h = document.getElementById('history-page');
+            if(d.style.display === 'block' || d.style.display === '') {
+                d.style.display = 'none'; h.style.display = 'block'; renderHistory();
+            } else {
+                d.style.display = 'block'; h.style.display = 'none';
+            }
+        }
+
         function renderHistory() {
             const list = document.getElementById('history-list');
             if (historyData.length === 0) {
@@ -334,65 +422,12 @@
             `).join('');
         }
 
-        function viewBackup(i) {
-            const backup = historyData[i].data;
-            let html = `<table><thead><tr><th>NICK</th><th>ID</th><th>CARGO</th><th>META</th><th>RESULTADO</th><th>OBS</th></tr></thead><tbody>`;
-            backup.forEach(m => {
-                html += `<tr><td>${m.nick}</td><td>${m.passaport}</td><td>${m.cargo}</td><td>${m.meta}</td><td>${m.resultado}</td><td>${m.obs}</td></tr>`;
-            });
-            html += `</tbody></table>`;
-            document.getElementById('modal-content').innerHTML = html;
-            document.getElementById('view-modal').style.display = 'block';
-        }
-
-        function archiveCurrent() {
-            if(familyData.length === 0) return alert("Não há dados!");
-            if(!confirm("Fechar a semana?")) return;
-            historyData.unshift({date: new Date().toLocaleString('pt-BR'), data: JSON.parse(JSON.stringify(familyData))});
-            localStorage.setItem('familyHistory', JSON.stringify(historyData));
-            familyData = familyData.map(m => ({...m, meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg: {}}));
-            save(); renderTable();
-        }
-
-        function deleteHistory(i) {
-            if(confirm("Apagar permanentemente?")) {
-                historyData.splice(i, 1);
-                localStorage.setItem('familyHistory', JSON.stringify(historyData));
-                renderHistory();
-            }
-        }
-
-        function closeModal() { document.getElementById('view-modal').style.display = 'none'; }
-        function updateCargo(i, v) { familyData[i].cargo = v; save(); }
-        
-        function organizeTable() { 
-            familyData.sort((a,b) => {
-                let idxA = listaCargos.indexOf(a.cargo);
-                let idxB = listaCargos.indexOf(b.cargo);
-                return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-            }); 
-            save(); renderTable(); 
-        }
-
-        function updateData(i, f, v) { familyData[i][f] = v; save(); }
-        function save() { localStorage.setItem('familyMembers', JSON.stringify(familyData)); }
-        function addRow() { familyData.push({nick:"NOME", passaport:"0", cargo:"Cria", meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg:{}}); renderTable(); }
-        function deleteRow(i) { if(confirm("Remover?")) { familyData.splice(i,1); save(); renderTable(); }}
-        
-        function toggleHistory() {
-            const d = document.getElementById('dashboard'), h = document.getElementById('history-page');
-            if(d.style.display === 'block' || d.style.display === '') {
-                d.style.display = 'none'; h.style.display = 'block'; renderHistory();
-            } else {
-                d.style.display = 'block'; h.style.display = 'none';
-            }
-        }
-
         function restore(i) { 
             if(confirm("Restaurar backup?")) { 
                 familyData = JSON.parse(JSON.stringify(historyData[i].data)); save(); renderTable(); toggleHistory(); 
             }
         }
+
         function clearTable() { if(confirm("Limpar tudo?")) { familyData = []; save(); renderTable(); }}
         
         function showColors(e, i, field) {
@@ -412,6 +447,7 @@
             }
         }
         document.onclick = () => document.getElementById('color-picker').style.display = 'none';
+        function closeModal() { document.getElementById('view-modal').style.display = 'none'; }
     </script>
 </body>
 </html>
