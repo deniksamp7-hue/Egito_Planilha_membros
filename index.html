@@ -110,7 +110,7 @@
         <div class="table-container">
             <div style="margin-bottom:20px;">
                 <button class="btn-action btn-green" onclick="addRow()">➕ Novo Membro</button>
-                <button class="btn-action btn-refresh" onclick="syncWithGoogle()">🔄 Atualizar e Salvar</button>
+                <button class="btn-action btn-refresh" onclick="actionWithLoading(refreshAndSync, 'Sincronizando Dados...', 'refresh')">🔄 Atualizar e Salvar</button>
                 <button class="btn-action btn-yellow" onclick="actionWithLoading(organizeTable, 'Organizando...', 'sort')">⚡ Organizar</button>
                 <button class="btn-action btn-blue" onclick="actionWithLoading(archiveCurrent, 'Arquivando...')">📁 Fechar Semana</button>
                 <button class="btn-action btn-blue" onclick="toggleHistory()">📅 Histórico</button>
@@ -119,6 +119,7 @@
                 <span style="font-weight: bold; color: var(--accent);">Baixar Planilha:</span>
                 <button class="btn-action btn-blue" style="background: #555" onclick="downloadFile('csv')">💾 Download .CSV</button>
                 <button class="btn-action btn-green" style="background: #1d6f42" onclick="downloadFile('xlsx')">💾 Download .XLSX</button>
+                <button class="btn-action btn-yellow" style="background: #8e44ad; color: white;" onclick="generateShareLink()">🔗 Gerar Link</button>
             </div>
 
             <div class="search-container">
@@ -158,16 +159,13 @@
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script>
-        // CONFIGURAÇÃO DO GOOGLE SHEETS
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyFrlbMr_bmhkLxXc9PT5xGLUQwatBx2yBgsv0YCeHbGp4ZvF4TDRqYGniEEFETX08M/exec";
-
         let familyData = JSON.parse(localStorage.getItem('familyMembers')) || [];
         let historyData = JSON.parse(localStorage.getItem('familyHistory')) || [];
         let currentEditing = { i: null, field: null, el: null };
         let selectedRole = "";
 
         const listaCargos = [
-            "Fundador(00)📜", "Dono do Morro (01)", "Braço Direito (02)", "Chefe do Morro (03)", 
+            "Fundador(0)📜", "Dono do Morro (01)", "Braço Direito (02)", "Chefe do Morro (03)", 
             "Conselheiro", "Gerente Geral", "Gerente", "Sintonia", "Chefe de Operações", 
             "Segurança da Favela", "Linha de Frente", "Atirador", "Pistoleiro", "Novato", 
             "Frente", "Frente da boca", "Traficante", "Vapor", "Fogueteiro", "Aviãozinho", 
@@ -181,50 +179,32 @@
                 document.getElementById('user-city-id').value = saved.id;
                 document.getElementById('remember-box').checked = true;
             }
+            window.addEventListener('storage', () => {
+                familyData = JSON.parse(localStorage.getItem('familyMembers')) || [];
+                renderTable();
+            });
         };
-
-        // FUNÇÃO DE SINCRONIZAÇÃO COM GOOGLE SHEETS
-        async function syncWithGoogle() {
-            const loader = document.getElementById('loader');
-            document.getElementById('loader-text').innerText = "Sincronizando com a Planilha...";
-            loader.style.display = 'flex';
-
-            try {
-                // 1. Enviar dados atuais para a planilha
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(familyData)
-                });
-
-                // 2. Puxar dados atualizados da planilha
-                const response = await fetch(SCRIPT_URL);
-                const remoteData = await response.json();
-
-                if (remoteData && remoteData.length > 0) {
-                    familyData = remoteData;
-                    save();
-                    renderTable();
-                    showNotify("Sincronizado com sucesso!", "#27ae60");
-                }
-            } catch (error) {
-                console.error(error);
-                showNotify("Erro ao sincronizar!", "#c0392b");
-            } finally {
-                loader.style.display = 'none';
-            }
-        }
 
         function filterTable() {
             const searchTerm = document.getElementById('table-search').value.toLowerCase();
             const rows = document.querySelectorAll('#table-body tr');
+            
             rows.forEach(row => {
                 const nick = row.cells[0].innerText.toLowerCase();
                 const id = row.cells[1].innerText.toLowerCase();
-                row.style.display = (nick.includes(searchTerm) || id.includes(searchTerm)) ? "" : "none";
+                
+                if (nick.includes(searchTerm) || id.includes(searchTerm)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
             });
+        }
+
+        function refreshAndSync() {
+            familyData = JSON.parse(localStorage.getItem('familyMembers')) || [];
+            renderTable();
+            document.getElementById('table-search').value = "";
         }
 
         function actionWithLoading(callback, message, type = '') {
@@ -234,7 +214,8 @@
             setTimeout(() => {
                 callback();
                 loader.style.display = 'none';
-                if(type === 'sort') showNotify("Hierarquia organizada!", "#f39c12");
+                if(type === 'refresh') showNotify("Dados sincronizados e salvos!", "#2980b9");
+                else if(type === 'sort') showNotify("Hierarquia organizada!", "#f39c12");
             }, 600);
         }
 
@@ -257,9 +238,7 @@
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
             document.getElementById('welcome-msg').innerHTML = `Logado como: <span style="color:var(--accent)">${nick}</span>`;
-            
-            // Ao logar, tenta puxar os dados da nuvem automaticamente
-            syncWithGoogle();
+            renderTable();
         }
 
         function renderTable() {
@@ -277,7 +256,7 @@
                     </td>
                     <td><select onchange="updateData(${i}, 'meta', this.value)" style="background:#222; color:white; border:none;">
                         <option value="PAGA" ${m.meta=='PAGA'?'selected':''}>PAGA</option>
-                        <option value="PENDENTE" ${m.meta=='PENDENTE'?'selected':''}>PENDENTE</option>
+                        <option value="PEDENTE" ${m.meta=='PEDENTE'?'selected':''}>PEDENTE</option>
                         <option value="ELITE" ${m.meta=='ELITE'?'selected':''}>ELITE</option>
                         <option value="FARME" ${m.meta=='FARME'?'selected':''}>FARME</option>
                         <option value="ALTO COMANDO" ${m.meta=='ALTO COMANDO'?'selected':''}>ALTO COMANDO</option>
@@ -302,41 +281,6 @@
                 body.appendChild(tr);
             });
         }
-
-        function updateCargo(i, v) { familyData[i].cargo = v; save(); }
-        function updateData(i, f, v) { familyData[i][f] = v; save(); }
-        function save() { localStorage.setItem('familyMembers', JSON.stringify(familyData)); }
-        function addRow() { familyData.push({nick:"NOME", passaport:"0", cargo:"Cria", meta:"PENDENTE", resultado:"-", reuniao:"Não", obs:"", bg:{}}); renderTable(); save(); }
-        function deleteRow(i) { if(confirm("Remover?")) { familyData.splice(i,1); save(); renderTable(); }}
-
-        function organizeTable() { 
-            familyData.sort((a,b) => {
-                let idxA = listaCargos.indexOf(a.cargo);
-                let idxB = listaCargos.indexOf(b.cargo);
-                return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-            }); 
-            save(); renderTable(); 
-        }
-
-        function clearTable() { if(confirm("Limpar tudo localmente?")) { familyData = []; save(); renderTable(); }}
-
-        function showColors(e, i, field) {
-            currentEditing = { i, field, el: e.target };
-            const p = document.getElementById('color-picker');
-            p.style.display = 'grid'; 
-            p.style.top = (e.pageY + 5) + 'px'; p.style.left = (e.pageX + 5) + 'px';
-            e.stopPropagation();
-        }
-        
-        function applyColor(color) {
-            if(currentEditing.el) {
-                currentEditing.el.style.backgroundColor = color;
-                if(!familyData[currentEditing.i].bg) familyData[currentEditing.i].bg = {};
-                familyData[currentEditing.i].bg[currentEditing.field] = color;
-                save();
-            }
-        }
-        document.onclick = () => document.getElementById('color-picker').style.display = 'none';
 
         function downloadFile(type) {
             const dataToExport = familyData.map(m => ({
@@ -367,6 +311,109 @@
             }
         }
 
+        function generateShareLink() {
+            if(familyData.length === 0) return alert("Não há dados para compartilhar!");
+            
+            const dataStr = JSON.stringify(familyData);
+            const blob = new Blob([dataStr], {type: 'application/json'});
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const base64Data = btoa(unescape(encodeURIComponent(dataStr)));
+                const shareLink = window.location.href.split('?')[0] + "?data=" + base64Data;
+                
+                navigator.clipboard.writeText(shareLink).then(() => {
+                    showNotify("Link copiado para a área de transferência!", "#8e44ad");
+                }).catch(err => {
+                    alert("Erro ao copiar link: " + err);
+                });
+            };
+            reader.readAsText(blob);
+        }
+
+        function importXLSX(input) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                if (jsonData.length > 0) {
+                    familyData = [];
+                    jsonData.forEach((row, index) => {
+                        if (index === 0 || !row[0]) return;
+                        familyData.push({
+                            nick: String(row[0] || "NOME").toUpperCase(),
+                            passaport: String(row[1] || "0"),
+                            cargo: String(row[2] || "Cria"),
+                            meta: String(row[3] || "PEDENTE").toUpperCase(),
+                            resultado: String(row[4] || "-"),
+                            reuniao: (row[5] && (String(row[5]).toUpperCase() === "SIM" || String(row[5]).toUpperCase() === "X")) ? "Sim" : "Não",
+                            obs: String(row[6] || ""),
+                            bg: {}
+                        });
+                    });
+                    save(); renderTable();
+                    showNotify("Excel importado!", "#1d6f42");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function importCSV(input) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lines = e.target.result.split('\n');
+                familyData = [];
+                lines.forEach((line, index) => {
+                    if (index === 0 || line.trim() === "") return;
+                    const cols = line.split(',');
+                    if(cols.length >= 2) {
+                        familyData.push({
+                            nick: (cols[0] || "NOME").trim().toUpperCase(),
+                            passaport: (cols[1] || "0").trim(),
+                            cargo: (cols[2] || "Cria").trim(),
+                            meta: (cols[3] || "PEDENTE").trim().toUpperCase(),
+                            resultado: (cols[4] || "-").trim(),
+                            reuniao: (cols[5] && (cols[5].trim().toUpperCase() === "X" || cols[5].trim().toUpperCase() === "SIM")) ? "Sim" : "Não",
+                            obs: (cols[6] || "").trim(),
+                            bg: {}
+                        });
+                    }
+                });
+                save(); renderTable();
+                showNotify("CSV importado!", "#27ae60");
+            };
+            reader.readAsText(file);
+        }
+
+        function archiveCurrent() {
+            if(familyData.length === 0) return alert("Não há dados!");
+            if(!confirm("Fechar a semana?")) return;
+            historyData.unshift({date: new Date().toLocaleString('pt-BR'), data: JSON.parse(JSON.stringify(familyData))});
+            localStorage.setItem('familyHistory', JSON.stringify(historyData));
+            familyData = familyData.map(m => ({...m, meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg: {}}));
+            save(); renderTable();
+        }
+
+        function updateCargo(i, v) { familyData[i].cargo = v; save(); }
+        
+        function organizeTable() { 
+            familyData.sort((a,b) => {
+                let idxA = listaCargos.indexOf(a.cargo);
+                let idxB = listaCargos.indexOf(b.cargo);
+                return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+            }); 
+            save(); renderTable(); 
+        }
+
+        function updateData(i, f, v) { familyData[i][f] = v; save(); }
+        function save() { localStorage.setItem('familyMembers', JSON.stringify(familyData)); }
+        function addRow() { familyData.push({nick:"NOME", passaport:"0", cargo:"Cria", meta:"PEDENTE", resultado:"-", reuniao:"Não", obs:"", bg:{}}); renderTable(); save(); }
+        function deleteRow(i) { if(confirm("Remover?")) { familyData.splice(i,1); save(); renderTable(); }}
+        
         function toggleHistory() {
             const d = document.getElementById('dashboard'), h = document.getElementById('history-page');
             if(d.style.display === 'block' || d.style.display === '') {
@@ -386,19 +433,12 @@
                 <div style="background:rgba(37,37,37,0.9); padding:15px; margin-bottom:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border-left: 4px solid var(--accent); backdrop-filter:blur(5px);">
                     <span>📅 <b>${e.date}</b> | 👥 ${e.data.length} Membros</span>
                     <div>
+                        <button class="btn-action btn-blue" onclick="viewBackup(${i})">👁️ Ver</button>
                         <button class="btn-action btn-yellow" onclick="restore(${i})">🔄 Restaurar</button>
+                        <button class="btn-action btn-red" onclick="deleteHistory(${i})">🗑️ Apagar</button>
                     </div>
                 </div>
             `).join('');
-        }
-
-        function archiveCurrent() {
-            if(familyData.length === 0) return alert("Não há dados!");
-            if(!confirm("Fechar a semana?")) return;
-            historyData.unshift({date: new Date().toLocaleString('pt-BR'), data: JSON.parse(JSON.stringify(familyData))});
-            localStorage.setItem('familyHistory', JSON.stringify(historyData));
-            familyData = familyData.map(m => ({...m, meta:"PENDENTE", resultado:"-", reuniao:"Não", obs:"", bg: {}}));
-            save(); renderTable();
         }
 
         function restore(i) { 
@@ -406,6 +446,27 @@
                 familyData = JSON.parse(JSON.stringify(historyData[i].data)); save(); renderTable(); toggleHistory(); 
             }
         }
+
+        function clearTable() { if(confirm("Limpar tudo?")) { familyData = []; save(); renderTable(); }}
+        
+        function showColors(e, i, field) {
+            currentEditing = { i, field, el: e.target };
+            const p = document.getElementById('color-picker');
+            p.style.display = 'grid'; 
+            p.style.top = (e.pageY + 5) + 'px'; p.style.left = (e.pageX + 5) + 'px';
+            e.stopPropagation();
+        }
+        
+        function applyColor(color) {
+            if(currentEditing.el) {
+                currentEditing.el.style.backgroundColor = color;
+                if(!familyData[currentEditing.i].bg) familyData[currentEditing.i].bg = {};
+                familyData[currentEditing.i].bg[currentEditing.field] = color;
+                save();
+            }
+        }
+        document.onclick = () => document.getElementById('color-picker').style.display = 'none';
+        function closeModal() { document.getElementById('view-modal').style.display = 'none'; }
     </script>
 </body>
 </html>
