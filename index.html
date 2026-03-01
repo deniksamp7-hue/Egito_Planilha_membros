@@ -236,6 +236,8 @@
                         <option value="PEDENTE" ${m.meta=='PEDENTE'?'selected':''}>PEDENTE</option>
                         <option value="ELITE" ${m.meta=='ELITE'?'selected':''}>ELITE</option>
                         <option value="FARME" ${m.meta=='FARME'?'selected':''}>FARME</option>
+                        <option value="ALTO COMANDO" ${m.meta=='ALTO COMANDO'?'selected':''}>ALTO COMANDO</option>
+                        <option value="GERÊNCIA" ${m.meta=='GERÊNCIA'?'selected':''}>FARME</option> 
                     </select></td>
                     <td contenteditable="true" style="background-color:${m.bg?.resultado}" onclick="showColors(event, ${i}, 'resultado')">${m.resultado}</td>
                     <td><input type="checkbox" ${m.reuniao=='Sim'?'checked':''} onchange="updateData(${i}, 'reuniao', this.checked?'Sim':'Não')"></td>
